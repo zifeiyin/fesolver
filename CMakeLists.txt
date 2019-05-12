@@ -35,7 +35,13 @@ ENDIF()
 DEAL_II_INITIALIZE_CACHED_VARIABLES()
 PROJECT(finiteElementSolver CXX)
 
-ADD_EXECUTABLE( FEsolver src/main.cpp )
+ADD_EXECUTABLE( FEsolver 
+                src/main/main.cpp
+                src/solver/solver.cpp 
+                src/preconditioner/preconditioner.cpp 
+                src/output/output.cpp
+                src/linear_solver/linear_solver.cpp
+                src/boundary/boundary.cpp )
 
 DEAL_II_SETUP_TARGET(FEsolver)
 

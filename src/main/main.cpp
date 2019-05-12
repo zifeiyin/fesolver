@@ -1,4 +1,4 @@
-#include "solver.hpp"
+#include "../solver/solver.hpp"
 
 int main()
 {
@@ -6,7 +6,7 @@ int main()
     {
       	using namespace dealii;
       	using namespace IncompNS;
-      	StationaryNavierStokes<2> flow(1); //degree
+      	StationaryNavierStokes<ELEMENT_DIM> flow(2); //degree
       	flow.run(4);
     }
   	

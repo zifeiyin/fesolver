@@ -1,86 +1,12 @@
+#include "solver.hpp"
+#include "../boundary/boundary.hpp"
+#include "../preconditioner/preconditioner.hpp"
+
 namespace IncompNS
 {
 	using namespace dealii;
-template <int dim>
-  	class BoundaryValues : public Function<dim>
-  	{
-  	public:
-    	BoundaryValues()
-    	  : Function<dim>(dim + 1)
-    	{}
-    	virtual double value(const Point<dim> & p,
-    	                     const unsigned int component) const override;
-  	};
-  	
-	template <int dim>
-  	double BoundaryValues<dim>::value(const Point<dim> & p,
-                                    const unsigned int component) const
-  	{
-    	Assert(component < this->n_components,
-           		ExcIndexRange(component, 0, this->n_components));
-    	if (component == 0 && std::abs(p[dim - 1] - 1.0) < 1e-10)
-      	return 1.0;
-    	return 0;
-  	}
-  	template <class PreconditionerMp>
-  	class BlockSchurPreconditioner : public Subscriptor
-  	{
-  	public:
-    	BlockSchurPreconditioner(double                           gamma,
-    	                         double                           viscosity,
-    	                         const BlockSparseMatrix<double> &S,
-    	                         const SparseMatrix<double> &     P,
-    	                         const PreconditionerMp &         Mppreconditioner);
-    	void vmult(BlockVector<double> &dst, const BlockVector<double> &src) const;
-  	private:
-    	const double                     gamma;
-    	const double                     viscosity;
-    	const BlockSparseMatrix<double> &stokes_matrix;
-    	const SparseMatrix<double> &     pressure_mass_matrix;
-    	const PreconditionerMp &         mp_preconditioner;
-    	SparseDirectUMFPACK              A_inverse;
-  	};
-  
-  	template <class PreconditionerMp>
-  	BlockSchurPreconditioner<PreconditionerMp>::BlockSchurPreconditioner(
-    	double                           gamma,
-    	double                           viscosity,
-    	const BlockSparseMatrix<double> &S,
-    	const SparseMatrix<double> &     P,
-    	const PreconditionerMp &         Mppreconditioner)
-    	: gamma(gamma)
-    	, viscosity(viscosity)
-    	, stokes_matrix(S)
-    	, pressure_mass_matrix(P)
-    	, mp_preconditioner(Mppreconditioner)
-  	{	
-    	A_inverse.initialize(stokes_matrix.block(0, 0));
-  	}
-  
-  	template <class PreconditionerMp>
-  	void BlockSchurPreconditioner<PreconditionerMp>::vmult(
-    	BlockVector<double> &      dst,
-    	const BlockVector<double> &src) const
-  	{
-    	Vector<double> utmp(src.block(0));
-    	{
-      	SolverControl solver_control(1000, 1e-6 * src.block(1).l2_norm());
-      	SolverCG<>    cg(solver_control);
-      	dst.block(1) = 0.0;
-      	cg.solve(pressure_mass_matrix,
-      	         dst.block(1),
-      	         src.block(1),
-      	         mp_preconditioner);
-      	dst.block(1) *= -(viscosity + gamma);
-    	}
-    	{
-      		stokes_matrix.block(0, 1).vmult(utmp, dst.block(1));
-      		utmp *= -1.0;
-      		utmp += src.block(0);
-    	}
-    	A_inverse.vmult(dst.block(0), utmp);
-  	}
-  
+
+
   	template <int dim>
   	StationaryNavierStokes<dim>::StationaryNavierStokes(const unsigned int degree)
     	: viscosity(1.0 / 7500.0)
@@ -308,129 +234,8 @@ template <int dim>
     initialize_system();
     present_solution = tmp;
   }
-  template <int dim>
-  void StationaryNavierStokes<dim>::newton_iteration(
-    const double       tolerance,
-    const unsigned int max_n_line_searches,
-    const unsigned int max_n_refinements,
-    const bool         is_initial_step,
-    const bool         output_result)
-  {
-    bool first_step = is_initial_step;
-    for (unsigned int refinement_n = 0; refinement_n < max_n_refinements + 1;
-         ++refinement_n)
-      {
-        unsigned int line_search_n = 0;
-        double       last_res      = 1.0;
-        double       current_res   = 1.0;
-        std::cout << "grid refinements: " << refinement_n << std::endl
-                  << "viscosity: " << viscosity << std::endl;
-        while ((first_step || (current_res > tolerance)) &&
-               line_search_n < max_n_line_searches)
-          {
-            if (first_step)
-              {
-                setup_dofs();
-                initialize_system();
-                evaluation_point = present_solution;
-                assemble_system(first_step);
-                solve(first_step);
-                present_solution = newton_update;
-                nonzero_constraints.distribute(present_solution);
-                first_step       = false;
-                evaluation_point = present_solution;
-                assemble_rhs(first_step);
-                current_res = system_rhs.l2_norm();
-                std::cout << "The residual of initial guess is " << current_res
-                          << std::endl;
-                last_res = current_res;
-              }
-            else
-              {
-                evaluation_point = present_solution;
-                assemble_system(first_step);
-                solve(first_step);
-                for (double alpha = 1.0; alpha > 1e-5; alpha *= 0.5)
-                  {
-                    evaluation_point = present_solution;
-                    evaluation_point.add(alpha, newton_update);
-                    nonzero_constraints.distribute(evaluation_point);
-                    assemble_rhs(first_step);
-                    current_res = system_rhs.l2_norm();
-                    std::cout << "  alpha: " << std::setw(10) << alpha
-                              << std::setw(0) << "  residual: " << current_res
-                              << std::endl;
-                    if (current_res < last_res)
-                      break;
-                  }
-                {
-                  present_solution = evaluation_point;
-                  std::cout << "  number of line searches: " << line_search_n
-                            << "  residual: " << current_res << std::endl;
-                  last_res = current_res;
-                }
-                ++line_search_n;
-              }
-            if (output_result)
-              {
-                output_results(max_n_line_searches * refinement_n +
-                               line_search_n);
-                if (current_res <= tolerance)
-                  process_solution(refinement_n);
-              }
-          }
-        if (refinement_n < max_n_refinements)
-          {
-            refine_mesh();
-          }
-      }
-  }
+ 
 
-  template <int dim>
-  void StationaryNavierStokes<dim>::process_solution(unsigned int refinement)
-  {
-    std::ostringstream filename;
-    filename << (1.0/viscosity) << "-line-" << refinement << ".txt";
-    std::ofstream f (filename.str().c_str());
-    f << "# y u_x u_y" << std::endl;
-    Point<dim> p;
-    p(0)= 0.5;
-    p(1)= 0.5;
-    f << std::scientific;
-    for (unsigned int i=0; i<=100; ++i)
-      {
-        p(dim-1) = i/100.0;
-        Vector<double> tmp_vector(dim+1);
-        VectorTools::point_value(dof_handler, present_solution, p, tmp_vector);
-        f << p(dim-1);
-        for (int j=0; j<dim; j++)
-          f << " " << tmp_vector(j);
-        f << std::endl;
-      }
-  }
-
-  template <int dim>
-  void StationaryNavierStokes<dim>::output_results(
-    const unsigned int output_index) const
-  {
-    std::vector<std::string> solution_names(dim, "velocity");
-    solution_names.emplace_back("pressure");
-    std::vector<DataComponentInterpretation::DataComponentInterpretation>
-      data_component_interpretation(
-        dim, DataComponentInterpretation::component_is_part_of_vector);
-    data_component_interpretation.push_back(
-      DataComponentInterpretation::component_is_scalar);
-    DataOut<dim> data_out;
-    data_out.attach_dof_handler(dof_handler);
-    data_out.add_data_vector(present_solution,
-                             solution_names,
-                             DataOut<dim>::type_dof_data,
-                             data_component_interpretation);
-    data_out.build_patches();
-    std::ofstream output(std::to_string(1.0 / viscosity) + "-solution-" +
-                         Utilities::int_to_string(output_index, 4) + ".vtk");
-    data_out.write_vtk(output);
-  }
 
   template <int dim>
   void StationaryNavierStokes<dim>::compute_initial_guess(double step_size)
@@ -471,4 +276,6 @@ template <int dim>
       }
   }
   	
+  template class StationaryNavierStokes<ELEMENT_DIM> ;
+
 } // namespace IncompNS

@@ -36,4 +36,9 @@
 #include <fstream>
 #include <iostream>
 
+
+// some definitions
+
+const int ELEMENT_DIM = 2 ;
+
 #endif

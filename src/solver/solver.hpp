@@ -1,6 +1,6 @@
 #ifndef SOLVER_H
 #define SOLVER_H
-#include "top.hpp"
+#include "../headers/top.hpp"
 
 namespace IncompNS
 {
@@ -47,8 +47,7 @@ namespace IncompNS
     	BlockVector<double>                             system_rhs;
     	BlockVector<double>                             evaluation_point;
   	};
-}
 
-#include "solver.cpp"
+}
 
 #endif
