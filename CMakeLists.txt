@@ -1,9 +1,5 @@
 CMAKE_MINIMUM_REQUIRED(VERSION 2.8.12)
 
-SET(TARGET "FEsolver")
-
-SET(TARGET_SRC src/solver.cpp )
-
 SET(CMAKE_INSTALL_PREFIX  "/Users/zyin/Github/fesolver/install" )
 
 FIND_PACKAGE(deal.II)
@@ -37,7 +33,10 @@ ENDIF()
 
 
 DEAL_II_INITIALIZE_CACHED_VARIABLES()
-PROJECT(${TARGET})
-DEAL_II_INVOKE_AUTOPILOT()
+PROJECT(finiteElementSolver CXX)
+
+ADD_EXECUTABLE( FEsolver src/main.cpp )
+
+DEAL_II_SETUP_TARGET(FEsolver)
 
 install ( TARGETS FEsolver DESTINATION bin )

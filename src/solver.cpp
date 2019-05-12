@@ -1,212 +1,146 @@
-
-#include <deal.II/base/quadrature_lib.h>
-#include <deal.II/base/function.h>
-#include <deal.II/base/utilities.h>
-#include <deal.II/base/tensor.h>
-#include <deal.II/lac/block_vector.h>
-#include <deal.II/lac/full_matrix.h>
-#include <deal.II/lac/block_sparse_matrix.h>
-#include <deal.II/lac/dynamic_sparsity_pattern.h>
-#include <deal.II/lac/solver_cg.h>
-#include <deal.II/lac/solver_gmres.h>
-#include <deal.II/lac/precondition.h>
-#include <deal.II/lac/affine_constraints.h>
-#include <deal.II/lac/sparse_direct.h>
-#include <deal.II/grid/tria.h>
-#include <deal.II/grid/grid_generator.h>
-#include <deal.II/grid/grid_refinement.h>
-#include <deal.II/grid/grid_tools.h>
-#include <deal.II/dofs/dof_handler.h>
-#include <deal.II/dofs/dof_renumbering.h>
-#include <deal.II/dofs/dof_tools.h>
-#include <deal.II/fe/fe_q.h>
-#include <deal.II/fe/fe_system.h>
-#include <deal.II/fe/fe_values.h>
-#include <deal.II/numerics/vector_tools.h>
-#include <deal.II/numerics/matrix_tools.h>
-#include <deal.II/numerics/data_out.h>
-#include <deal.II/numerics/error_estimator.h>
-#include <deal.II/numerics/solution_transfer.h>
-#include <deal.II/lac/sparse_direct.h>
-#include <deal.II/lac/sparse_ilu.h>
-#include <fstream>
-#include <iostream>
-namespace Step57
+namespace IncompNS
 {
-  using namespace dealii;
-  template <int dim>
-  class StationaryNavierStokes
-  {
-  public:
-    StationaryNavierStokes(const unsigned int degree);
-    void run(const unsigned int refinement);
-  private:
-    void setup_dofs();
-    void initialize_system();
-    void assemble(const bool initial_step, const bool assemble_matrix);
-    void assemble_system(const bool initial_step);
-    void assemble_rhs(const bool initial_step);
-    void solve(const bool initial_step);
-    void refine_mesh();
-    void process_solution(unsigned int refinement);
-    void output_results(const unsigned int refinement_cycle) const;
-    void newton_iteration(const double       tolerance,
-                          const unsigned int max_n_line_searches,
-                          const unsigned int max_n_refinements,
-                          const bool         is_initial_step,
-                          const bool         output_result);
-    void compute_initial_guess(double step_size);
-    double                               viscosity;
-    double                               gamma;
-    const unsigned int                   degree;
-    std::vector<types::global_dof_index> dofs_per_block;
-    Triangulation<dim> triangulation;
-    FESystem<dim>      fe;
-    DoFHandler<dim>    dof_handler;
-    AffineConstraints<double> zero_constraints;
-    AffineConstraints<double> nonzero_constraints;
-    BlockSparsityPattern      sparsity_pattern;
-    BlockSparseMatrix<double> system_matrix;
-    SparseMatrix<double>      pressure_mass_matrix;
-    BlockVector<double> present_solution;
-    BlockVector<double> newton_update;
-    BlockVector<double> system_rhs;
-    BlockVector<double> evaluation_point;
-  };
-  template <int dim>
-  class BoundaryValues : public Function<dim>
-  {
-  public:
-    BoundaryValues()
-      : Function<dim>(dim + 1)
-    {}
-    virtual double value(const Point<dim> & p,
-                         const unsigned int component) const override;
-  };
-  template <int dim>
-  double BoundaryValues<dim>::value(const Point<dim> & p,
+	using namespace dealii;
+template <int dim>
+  	class BoundaryValues : public Function<dim>
+  	{
+  	public:
+    	BoundaryValues()
+    	  : Function<dim>(dim + 1)
+    	{}
+    	virtual double value(const Point<dim> & p,
+    	                     const unsigned int component) const override;
+  	};
+  	
+	template <int dim>
+  	double BoundaryValues<dim>::value(const Point<dim> & p,
                                     const unsigned int component) const
-  {
-    Assert(component < this->n_components,
-           ExcIndexRange(component, 0, this->n_components));
-    if (component == 0 && std::abs(p[dim - 1] - 1.0) < 1e-10)
-      return 1.0;
-    return 0;
-  }
-  template <class PreconditionerMp>
-  class BlockSchurPreconditioner : public Subscriptor
-  {
-  public:
-    BlockSchurPreconditioner(double                           gamma,
-                             double                           viscosity,
-                             const BlockSparseMatrix<double> &S,
-                             const SparseMatrix<double> &     P,
-                             const PreconditionerMp &         Mppreconditioner);
-    void vmult(BlockVector<double> &dst, const BlockVector<double> &src) const;
-  private:
-    const double                     gamma;
-    const double                     viscosity;
-    const BlockSparseMatrix<double> &stokes_matrix;
-    const SparseMatrix<double> &     pressure_mass_matrix;
-    const PreconditionerMp &         mp_preconditioner;
-    SparseDirectUMFPACK              A_inverse;
-  };
-  template <class PreconditionerMp>
-  BlockSchurPreconditioner<PreconditionerMp>::BlockSchurPreconditioner(
-    double                           gamma,
-    double                           viscosity,
-    const BlockSparseMatrix<double> &S,
-    const SparseMatrix<double> &     P,
-    const PreconditionerMp &         Mppreconditioner)
-    : gamma(gamma)
-    , viscosity(viscosity)
-    , stokes_matrix(S)
-    , pressure_mass_matrix(P)
-    , mp_preconditioner(Mppreconditioner)
-  {
-    A_inverse.initialize(stokes_matrix.block(0, 0));
-  }
-  template <class PreconditionerMp>
-  void BlockSchurPreconditioner<PreconditionerMp>::vmult(
-    BlockVector<double> &      dst,
-    const BlockVector<double> &src) const
-  {
-    Vector<double> utmp(src.block(0));
-    {
-      SolverControl solver_control(1000, 1e-6 * src.block(1).l2_norm());
-      SolverCG<>    cg(solver_control);
-      dst.block(1) = 0.0;
-      cg.solve(pressure_mass_matrix,
-               dst.block(1),
-               src.block(1),
-               mp_preconditioner);
-      dst.block(1) *= -(viscosity + gamma);
-    }
-    {
-      stokes_matrix.block(0, 1).vmult(utmp, dst.block(1));
-      utmp *= -1.0;
-      utmp += src.block(0);
-    }
-    A_inverse.vmult(dst.block(0), utmp);
-  }
-  template <int dim>
-  StationaryNavierStokes<dim>::StationaryNavierStokes(const unsigned int degree)
-    : viscosity(1.0 / 7500.0)
-    , gamma(1.0)
-    , degree(degree)
-    , triangulation(Triangulation<dim>::maximum_smoothing)
-    , fe(FE_Q<dim>(degree + 1), dim, FE_Q<dim>(degree), 1)
-    , dof_handler(triangulation)
-  {}
-  template <int dim>
-  void StationaryNavierStokes<dim>::setup_dofs()
-  {
-    system_matrix.clear();
-    pressure_mass_matrix.clear();
-    dof_handler.distribute_dofs(fe);
-    std::vector<unsigned int> block_component(dim + 1, 0);
-    block_component[dim] = 1;
-    DoFRenumbering::component_wise(dof_handler, block_component);
-    dofs_per_block.resize(2);
-    DoFTools::count_dofs_per_block(dof_handler,
-                                   dofs_per_block,
-                                   block_component);
-    unsigned int dof_u = dofs_per_block[0];
-    unsigned int dof_p = dofs_per_block[1];
-    FEValuesExtractors::Vector velocities(0);
-    {
-      nonzero_constraints.clear();
-      DoFTools::make_hanging_node_constraints(dof_handler, nonzero_constraints);
-      VectorTools::interpolate_boundary_values(dof_handler,
-                                               0,
-                                               BoundaryValues<dim>(),
-                                               nonzero_constraints,
-                                               fe.component_mask(velocities));
-    }
-    nonzero_constraints.close();
-    {
-      zero_constraints.clear();
-      DoFTools::make_hanging_node_constraints(dof_handler, zero_constraints);
-      VectorTools::interpolate_boundary_values(dof_handler,
-                                               0,
-                                               Functions::ZeroFunction<dim>(
-                                                 dim + 1),
-                                               zero_constraints,
-                                               fe.component_mask(velocities));
-    }
-    zero_constraints.close();
-    std::cout << "Number of active cells: " << triangulation.n_active_cells()
-              << std::endl
-              << "Number of degrees of freedom: " << dof_handler.n_dofs()
-              << " (" << dof_u << " + " << dof_p << ')' << std::endl;
-  }
-  template <int dim>
-  void StationaryNavierStokes<dim>::initialize_system()
-  {
-    {
-      BlockDynamicSparsityPattern dsp(dofs_per_block, dofs_per_block);
-      DoFTools::make_sparsity_pattern(dof_handler, dsp, nonzero_constraints);
-      sparsity_pattern.copy_from(dsp);
+  	{
+    	Assert(component < this->n_components,
+           		ExcIndexRange(component, 0, this->n_components));
+    	if (component == 0 && std::abs(p[dim - 1] - 1.0) < 1e-10)
+      	return 1.0;
+    	return 0;
+  	}
+  	template <class PreconditionerMp>
+  	class BlockSchurPreconditioner : public Subscriptor
+  	{
+  	public:
+    	BlockSchurPreconditioner(double                           gamma,
+    	                         double                           viscosity,
+    	                         const BlockSparseMatrix<double> &S,
+    	                         const SparseMatrix<double> &     P,
+    	                         const PreconditionerMp &         Mppreconditioner);
+    	void vmult(BlockVector<double> &dst, const BlockVector<double> &src) const;
+  	private:
+    	const double                     gamma;
+    	const double                     viscosity;
+    	const BlockSparseMatrix<double> &stokes_matrix;
+    	const SparseMatrix<double> &     pressure_mass_matrix;
+    	const PreconditionerMp &         mp_preconditioner;
+    	SparseDirectUMFPACK              A_inverse;
+  	};
+  
+  	template <class PreconditionerMp>
+  	BlockSchurPreconditioner<PreconditionerMp>::BlockSchurPreconditioner(
+    	double                           gamma,
+    	double                           viscosity,
+    	const BlockSparseMatrix<double> &S,
+    	const SparseMatrix<double> &     P,
+    	const PreconditionerMp &         Mppreconditioner)
+    	: gamma(gamma)
+    	, viscosity(viscosity)
+    	, stokes_matrix(S)
+    	, pressure_mass_matrix(P)
+    	, mp_preconditioner(Mppreconditioner)
+  	{	
+    	A_inverse.initialize(stokes_matrix.block(0, 0));
+  	}
+  
+  	template <class PreconditionerMp>
+  	void BlockSchurPreconditioner<PreconditionerMp>::vmult(
+    	BlockVector<double> &      dst,
+    	const BlockVector<double> &src) const
+  	{
+    	Vector<double> utmp(src.block(0));
+    	{
+      	SolverControl solver_control(1000, 1e-6 * src.block(1).l2_norm());
+      	SolverCG<>    cg(solver_control);
+      	dst.block(1) = 0.0;
+      	cg.solve(pressure_mass_matrix,
+      	         dst.block(1),
+      	         src.block(1),
+      	         mp_preconditioner);
+      	dst.block(1) *= -(viscosity + gamma);
+    	}
+    	{
+      		stokes_matrix.block(0, 1).vmult(utmp, dst.block(1));
+      		utmp *= -1.0;
+      		utmp += src.block(0);
+    	}
+    	A_inverse.vmult(dst.block(0), utmp);
+  	}
+  
+  	template <int dim>
+  	StationaryNavierStokes<dim>::StationaryNavierStokes(const unsigned int degree)
+    	: viscosity(1.0 / 7500.0)
+    	, gamma(1.0)
+    	, degree(degree)
+    	, triangulation(Triangulation<dim>::maximum_smoothing)
+    	, fe(FE_Q<dim>(degree + 1), dim, FE_Q<dim>(degree), 1)
+    	, dof_handler(triangulation)
+  	{}
+  
+  	template <int dim>
+  	void StationaryNavierStokes<dim>::setup_dofs()
+  	{
+    	system_matrix.clear();
+    	pressure_mass_matrix.clear();
+    	dof_handler.distribute_dofs(fe);
+    	std::vector<unsigned int> block_component(dim + 1, 0);
+    	block_component[dim] = 1;
+    	DoFRenumbering::component_wise(dof_handler, block_component);
+    	dofs_per_block.resize(2);
+    	DoFTools::count_dofs_per_block(dof_handler,
+    	                               dofs_per_block,
+    	                               block_component);
+    	unsigned int dof_u = dofs_per_block[0];
+    	unsigned int dof_p = dofs_per_block[1];
+    	FEValuesExtractors::Vector velocities(0);
+    	{
+    		nonzero_constraints.clear();
+      		DoFTools::make_hanging_node_constraints(dof_handler, nonzero_constraints);
+      		VectorTools::interpolate_boundary_values(dof_handler,
+     		                                          0,
+     		                                          BoundaryValues<dim>(),
+     		                                          nonzero_constraints,
+     		                                          fe.component_mask(velocities));
+    	}
+    	nonzero_constraints.close();
+    	{
+      		zero_constraints.clear();
+      		DoFTools::make_hanging_node_constraints(dof_handler, zero_constraints);
+      		VectorTools::interpolate_boundary_values(dof_handler,
+      		                                         0,
+      		                                         Functions::ZeroFunction<dim>(
+      		                                           dim + 1),
+      		                                         zero_constraints,
+      		                                         fe.component_mask(velocities));
+    	}
+    	zero_constraints.close();
+    	std::cout << "Number of active cells: " << triangulation.n_active_cells()
+    	          << std::endl
+    	          << "Number of degrees of freedom: " << dof_handler.n_dofs()
+    	          << " (" << dof_u << " + " << dof_p << ')' << std::endl;
+  		}
+  		
+	template <int dim>
+  	void StationaryNavierStokes<dim>::initialize_system()
+  	{
+    	{
+      	BlockDynamicSparsityPattern dsp(dofs_per_block, dofs_per_block);
+      	DoFTools::make_sparsity_pattern(dof_handler, dsp, nonzero_constraints);
+      	sparsity_pattern.copy_from(dsp);
     }
     system_matrix.reinit(sparsity_pattern);
     present_solution.reinit(dofs_per_block);
@@ -451,21 +385,30 @@ namespace Step57
           }
       }
   }
+
   template <int dim>
-  void StationaryNavierStokes<dim>::compute_initial_guess(double step_size)
+  void StationaryNavierStokes<dim>::process_solution(unsigned int refinement)
   {
-    const double target_Re = 1.0 / viscosity;
-    bool is_initial_step = true;
-    for (double Re = 1000.0; Re < target_Re;
-         Re        = std::min(Re + step_size, target_Re))
+    std::ostringstream filename;
+    filename << (1.0/viscosity) << "-line-" << refinement << ".txt";
+    std::ofstream f (filename.str().c_str());
+    f << "# y u_x u_y" << std::endl;
+    Point<dim> p;
+    p(0)= 0.5;
+    p(1)= 0.5;
+    f << std::scientific;
+    for (unsigned int i=0; i<=100; ++i)
       {
-        viscosity = 1.0 / Re;
-        std::cout << "Searching for initial guess with Re = " << Re
-                  << std::endl;
-        newton_iteration(1e-12, 50, 0, is_initial_step, false);
-        is_initial_step = false;
+        p(dim-1) = i/100.0;
+        Vector<double> tmp_vector(dim+1);
+        VectorTools::point_value(dof_handler, present_solution, p, tmp_vector);
+        f << p(dim-1);
+        for (int j=0; j<dim; j++)
+          f << " " << tmp_vector(j);
+        f << std::endl;
       }
   }
+
   template <int dim>
   void StationaryNavierStokes<dim>::output_results(
     const unsigned int output_index) const
@@ -488,27 +431,24 @@ namespace Step57
                          Utilities::int_to_string(output_index, 4) + ".vtk");
     data_out.write_vtk(output);
   }
+
   template <int dim>
-  void StationaryNavierStokes<dim>::process_solution(unsigned int refinement)
+  void StationaryNavierStokes<dim>::compute_initial_guess(double step_size)
   {
-    std::ofstream f(std::to_string(1.0 / viscosity) + "-line-" +
-                    std::to_string(refinement) + ".txt");
-    f << "# y u_x u_y" << std::endl;
-    Point<dim> p;
-    p(0) = 0.5;
-    p(1) = 0.5;
-    f << std::scientific;
-    for (unsigned int i = 0; i <= 100; ++i)
+    const double target_Re = 1.0 / viscosity;
+    bool is_initial_step = true;
+    for (double Re = 1000.0; Re < target_Re;
+         Re        = std::min(Re + step_size, target_Re))
       {
-        p(dim - 1) = i / 100.0;
-        Vector<double> tmp_vector(dim + 1);
-        VectorTools::point_value(dof_handler, present_solution, p, tmp_vector);
-        f << p(dim - 1);
-        for (int j = 0; j < dim; j++)
-          f << " " << tmp_vector(j);
-        f << std::endl;
+        viscosity = 1.0 / Re;
+        std::cout << "Searching for initial guess with Re = " << Re
+                  << std::endl;
+        newton_iteration(1e-12, 50, 0, is_initial_step, false);
+        is_initial_step = false;
       }
   }
+
+
   template <int dim>
   void StationaryNavierStokes<dim>::run(const unsigned int refinement)
   {
@@ -530,40 +470,5 @@ namespace Step57
         newton_iteration(1e-12, 50, refinement, true, true);
       }
   }
-} // namespace Step57
-int main()
-{
-  try
-    {
-      using namespace dealii;
-      using namespace Step57;
-      StationaryNavierStokes<2> flow(/* degree = */ 1);
-      flow.run(4);
-    }
-  catch (std::exception &exc)
-    {
-      std::cerr << std::endl
-                << std::endl
-                << "----------------------------------------------------"
-                << std::endl;
-      std::cerr << "Exception on processing: " << std::endl
-                << exc.what() << std::endl
-                << "Aborting!" << std::endl
-                << "----------------------------------------------------"
-                << std::endl;
-      return 1;
-    }
-  catch (...)
-    {
-      std::cerr << std::endl
-                << std::endl
-                << "----------------------------------------------------"
-                << std::endl;
-      std::cerr << "Unknown exception!" << std::endl
-                << "Aborting!" << std::endl
-                << "----------------------------------------------------"
-                << std::endl;
-      return 1;
-    }
-  return 0;
-}
+  	
+} // namespace IncompNS
