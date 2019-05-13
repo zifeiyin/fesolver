@@ -1,3 +1,5 @@
+#ifndef BOUNDARY_H
+#define BOUNDARY_H
 #include "../headers/top.hpp"
 
 namespace IncompNS
@@ -16,3 +18,6 @@ namespace IncompNS
   	};
   	
 }
+
+
+#endif
