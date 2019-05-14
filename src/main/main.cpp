@@ -2,38 +2,44 @@
 
 int main()
 {
-  	try
+  try
     {
-      	using namespace dealii;
-      	using namespace IncompNS;
-      	StationaryNavierStokes<ELEMENT_DIM> flow(2); //degree
-      	flow.run(4);
+      using namespace dealii;
+      using namespace NavierStokes;
+      RunTimeParameters::Data_Storage data;
+      data.read_data ("parameter-file.prm");
+      deallog.depth_console (data.verbose ? 2 : 0);
+      NavierStokesProjection<2> test (data);
+      test.run (data.verbose, data.output_interval);
     }
-  	
-	catch (std::exception &exc)
+  catch (std::exception &exc)
     {
-      	std::cerr 	<< std::endl
-                	<< std::endl
-                	<< "----------------------------------------------------"
-                	<< std::endl;
-      	std::cerr 	<< "Exception on processing: " << std::endl
-                	<< exc.what() << std::endl
-                	<< "Aborting!" << std::endl
-                	<< "----------------------------------------------------"
-                	<< std::endl;
-      	return 1;
+      std::cerr << std::endl << std::endl
+                << "----------------------------------------------------"
+                << std::endl;
+      std::cerr << "Exception on processing: " << std::endl
+                << exc.what() << std::endl
+                << "Aborting!" << std::endl
+                << "----------------------------------------------------"
+                << std::endl;
+      return 1;
     }
-  	catch (...)
+  catch (...)
     {
-      	std::cerr 	<< std::endl
-                	<< std::endl
-                	<< "----------------------------------------------------"
-                	<< std::endl;
-      	std::cerr 	<< "Unknown exception!" << std::endl
-                	<< "Aborting!" << std::endl
-                	<< "----------------------------------------------------"
-                	<< std::endl;
-      	return 1;
+      std::cerr << std::endl << std::endl
+                << "----------------------------------------------------"
+                << std::endl;
+      std::cerr << "Unknown exception!" << std::endl
+                << "Aborting!" << std::endl
+                << "----------------------------------------------------"
+                << std::endl;
+      return 1;
     }
-  	return 0;
+  std::cout << "----------------------------------------------------"
+            << std::endl
+            << "Apparently everything went fine!"
+            << std::endl
+            << "Don't forget to brush your teeth :-)"
+            << std::endl << std::endl;
+  return 0;
 }
