@@ -36,16 +36,9 @@ DEAL_II_INITIALIZE_CACHED_VARIABLES()
 PROJECT(finiteElementSolver)
 
 ADD_EXECUTABLE( FEsolver 
-                src/init/initialize.cpp
-                src/solver/advection.cpp
-                src/solver/diffusion.cpp
-                src/solver/gradient.cpp
-                src/solver/projection.cpp
-                src/matrix/init_matrix.cpp
-                src/output/output.cpp
-                src/eqn/eqnData.cpp
+                src/parameters/read_parameters.cpp
+                src/parameters/declare_parameters.cpp
                 src/solver/solver.cpp
-                src/prm/prm.cpp
                 src/main/main.cpp )
 
 DEAL_II_SETUP_TARGET(FEsolver)

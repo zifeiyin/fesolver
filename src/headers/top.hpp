@@ -37,9 +37,12 @@
 #include <deal.II/numerics/matrix_tools.h>
 #include <deal.II/numerics/vector_tools.h>
 #include <deal.II/numerics/data_out.h>
+
+//std
 #include <fstream>
 #include <cmath>
 #include <iostream>
+#include <string>
 
 
 // some definitions

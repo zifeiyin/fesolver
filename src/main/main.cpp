@@ -1,45 +1,51 @@
 #include "../solver/solver.hpp"
 
+/**
+ * main function to solve incompressible Navier-Stokes equation
+ * Author: Dr. Zifei Yin at SJTU
+ * Email:  zifeiyin@outlook.com
+ */
 int main()
 {
-  try
+  	try
     {
-      using namespace dealii;
-      using namespace NavierStokes;
-      RunTimeParameters::Data_Storage data;
-      data.read_data ("parameter-file.prm");
-      deallog.depth_console (data.verbose ? 2 : 0);
-      NavierStokesProjection<2> test (data);
-      test.run (data.verbose, data.output_interval);
+      	using namespace NavierStokes;
+
+		RunTimeParameters::DataStorage data ;
+
+		data.read_data( "problem.inp" ) ;
+
+      	IncompressibleNavierStokes<ELEMENT_DIM> problem( data ) ;
+      	problem.run ();
     }
-  catch (std::exception &exc)
+  	catch (std::exception &exc)
     {
-      std::cerr << std::endl << std::endl
-                << "----------------------------------------------------"
-                << std::endl;
-      std::cerr << "Exception on processing: " << std::endl
-                << exc.what() << std::endl
-                << "Aborting!" << std::endl
-                << "----------------------------------------------------"
-                << std::endl;
-      return 1;
+      	std::cerr 	<< std::endl << std::endl
+                	<< "----------------------------------------------------"
+                	<< std::endl;
+      	std::cerr 	<< "Exception on processing: " << std::endl
+                	<< exc.what() << std::endl
+                	<< "Aborting!" << std::endl
+                	<< "----------------------------------------------------"
+                	<< std::endl;
+      	return 1;
     }
-  catch (...)
+  	catch (...)
     {
-      std::cerr << std::endl << std::endl
-                << "----------------------------------------------------"
-                << std::endl;
-      std::cerr << "Unknown exception!" << std::endl
-                << "Aborting!" << std::endl
-                << "----------------------------------------------------"
-                << std::endl;
-      return 1;
+      	std::cerr 	<< std::endl << std::endl
+                	<< "----------------------------------------------------"
+                	<< std::endl;
+      	std::cerr 	<< "Unknown exception!" << std::endl
+                	<< "Aborting!" << std::endl
+                	<< "----------------------------------------------------"
+                	<< std::endl;
+      	return 1;
     }
-  std::cout << "----------------------------------------------------"
-            << std::endl
-            << "Apparently everything went fine!"
-            << std::endl
-            << "Don't forget to brush your teeth :-)"
-            << std::endl << std::endl;
-  return 0;
+  	std::cout 	<< "----------------------------------------------------"
+            	<< std::endl
+            	<< "Apparently everything went fine!"
+            	<< std::endl
+            	<< "Don't forget to brush your teeth :-)"
+            	<< std::endl << std::endl;
+  	return 0;
 }
