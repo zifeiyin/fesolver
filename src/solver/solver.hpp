@@ -6,6 +6,12 @@
 namespace NavierStokes
 {
 
+/**
+ * Incompressible Navier-Stokes solver using Stablized Finite Element method,
+ * the Steamline-upwind Petrov-Galerkin (SUPG) method or the Galerkin/Least-squares 
+ * method. Since it is Continuous Galerkin method, it only applys to incompressible
+ * flow or weakly compressible flow
+ */
 template <int dim>
 class IncompressibleNavierStokes
 {
@@ -18,6 +24,14 @@ private:
 
 
 };
+
+/**
+ * Compressible Navier-Stokes solver which uses Discontinuous Galerkin method.
+ * Awaiting development
+ */
+
+
+
 
 
 }
