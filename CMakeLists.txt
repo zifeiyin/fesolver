@@ -39,9 +39,11 @@ DEAL_II_INITIALIZE_CACHED_VARIABLES()
 PROJECT(finiteElementSolver)
 
 ADD_EXECUTABLE( FEsolver 
+                src/parameters/parameters.cpp
                 src/parameters/read_parameters.cpp
                 src/parameters/declare_parameters.cpp
                 src/solver/solver.cpp
+                src/mesh/mesh.cpp
                 src/main/main.cpp )
 
 DEAL_II_SETUP_TARGET(FEsolver)

@@ -18,7 +18,6 @@ void DataStorage::read_data(
 
     prmHd.enter_subsection( "Mesh" ) ;
     {
-        mesh_dir        = prmHd.get( "mesh directory"   ) ;
         mesh_file       = prmHd.get( "mesh file"        ) ;
     }
     prmHd.leave_subsection() ;

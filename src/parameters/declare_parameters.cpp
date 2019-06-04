@@ -8,7 +8,6 @@ namespace RunTimeParameters
  * Default constructor of Data storage
  */
 DataStorage::DataStorage() :
-    mesh_dir            (   "mesh"  ),
     dt                  (   0.01    ),
     initial_time        (   0.0     ),
     final_time          (   100.0   ),
@@ -17,10 +16,6 @@ DataStorage::DataStorage() :
 {
     prmHd.enter_subsection(     "Mesh"                                          ) ;
     {
-        prmHd.declare_entry(    "mesh directory",
-                                "",
-                                Patterns::Anything(),
-                                "The directory that stores mesh files"          ) ;
         prmHd.declare_entry(    "mesh file",
                                 "",
                                 Patterns::Anything(),

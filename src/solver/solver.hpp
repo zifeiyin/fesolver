@@ -2,6 +2,7 @@
 #define SOLVER_H
 #include "../headers/top.hpp"
 #include "../parameters/parameters.hpp"
+#include "../mesh/mesh.hpp"
 
 namespace NavierStokes
 {
@@ -21,6 +22,7 @@ public:
 protected:
 
 private:
+	MeshStorage 		meshStorage ;
 
 
 };

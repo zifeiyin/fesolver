@@ -9,7 +9,7 @@ namespace NavierStokes
 template <int dim>
 void IncompressibleNavierStokes<dim>::run()
 {
-    printf("Incompressible solver \n") ;
+    printf("Run the simulation \n") ;
 }
 template void IncompressibleNavierStokes<ELEMENT_DIM>::run() ;
 
@@ -21,8 +21,10 @@ template <int dim>
 IncompressibleNavierStokes<dim>::IncompressibleNavierStokes(
     const RunTimeParameters::DataStorage&   data
 )
+:
+meshStorage( data )
 {
-    printf("Incompressible solver \n") ;
+    cout << "finishing constructor" << endl ;
 }
 template IncompressibleNavierStokes<ELEMENT_DIM>::IncompressibleNavierStokes( 
    const RunTimeParameters::DataStorage&   data 

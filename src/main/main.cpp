@@ -3,7 +3,7 @@
 /**
  * main function to solve incompressible Navier-Stokes equation
  * Author: Dr. Zifei Yin at SJTU
- * Email:  zifeiyin@outlook.com
+ * Email:  yinzifei@sjtu.edu.cn
  */
 int main()
 {
@@ -16,6 +16,7 @@ int main()
 		data.read_data( "problem.inp" ) ;
 
       	IncompressibleNavierStokes<ELEMENT_DIM> problem( data ) ;
+
       	problem.run ();
     }
   	catch (std::exception &exc)
@@ -43,9 +44,7 @@ int main()
     }
   	std::cout 	<< "----------------------------------------------------"
             	<< std::endl
-            	<< "Apparently everything went fine!"
-            	<< std::endl
-            	<< "Don't forget to brush your teeth :-)"
+            	<< "Done!"
             	<< std::endl << std::endl;
   	return 0;
 }

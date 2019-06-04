@@ -1,5 +1,6 @@
 #!/bin/sh
 
+# initialize some flags
 debug_flag=0
 clean_build=0
 
@@ -9,7 +10,7 @@ do
     if [ "$arg" == "-g" ] || [ "$arg" == "-debug" ]
     then
         debug_flag=1
-    elif [ "$arg" == "-clean" ]
+    elif [ "$arg" == "-clean" ] || [ "$arg" == "clean" ]
     then
         clean_build=1
     fi
@@ -30,5 +31,4 @@ else
     cmake -DCMAKE_BUILD_TYPE="Release" -DCMAKE_INSTALL_PREFIX=$PWD/platform ..
 fi
 
-make all
-make install
+make all install
