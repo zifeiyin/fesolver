@@ -1,6 +1,6 @@
 CMAKE_MINIMUM_REQUIRED(VERSION 2.8.12)
 
-SET(CMAKE_INSTALL_PREFIX  "/Users/zyin/Github/fesolver/install" )
+SET(CMAKE_INSTALL_PREFIX  "/Users/zyin/Github/fesolver/platform" )
 
 FIND_PACKAGE(deal.II)
 IF(NOT ${deal.II_FOUND})
@@ -31,6 +31,9 @@ which conflict with the requirements."
     )
 ENDIF()
 
+# compiler flags
+set(CMAKE_CXX_FLAGS_DEBUG " -g -Wall")
+set(CMAKE_CXX_FLAGS_RELEASE " -O3 -Wall")
 
 DEAL_II_INITIALIZE_CACHED_VARIABLES()
 PROJECT(finiteElementSolver)
