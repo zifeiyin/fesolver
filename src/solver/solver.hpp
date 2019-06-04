@@ -22,7 +22,7 @@ public:
 protected:
 
 private:
-	MeshStorage 		meshStorage ;
+	MeshStorage<dim> 		meshStorage ;
 
 
 };
